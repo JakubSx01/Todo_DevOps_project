@@ -19,7 +19,7 @@
 
         <form action="/delete" method="post">
             <button type="submit">Delete</button>
-            <input type="hidden" name="id" value="{{ todo.id }}">
+            <input type="hidden" name="id" value="{{ todo._id }}">
         </form>
         </li>
         {% endfor %}
