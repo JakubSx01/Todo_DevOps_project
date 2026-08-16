@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App</title>
+</head>
+<body>
+    <h1>Todo App</h1>
+    <form action="/add" method="post">
+        <input type="text" name="title" placeholder="Add a new todo">
+        <button type="submit">Add</button>
+    </form>
+
+    <h2>Todo List</h2>
+    <ul>
+        {% for todo in todos %}
+        <li>{{ todo.title }}
+
+        <form action="/delete" method="post">
+            <button type="submit">Delete</button>
+            <input type="hidden" name="id" value="{{ todo.id }}">
+        </form>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
