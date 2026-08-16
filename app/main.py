@@ -35,7 +35,7 @@ async def add_todo(request : Request):
 @app.post("/delete")
 async def delete_todo(request : Request):
     form = await request.form()
-    todo_id = int(form.get("id"))
+    todo_id = form.get("id")
     for todo in todos:
         if todo["id"] == todo_id:
             todos.remove(todo)
