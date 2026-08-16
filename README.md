@@ -2,89 +2,75 @@
 
 A hands-on DevOps project built around a simple Python Todo web application.
 
-The application itself is intentionally minimal. The main purpose of the project is to demonstrate the process of taking an application from source code through **containerization, infrastructure provisioning, Kubernetes deployment and CI/CD automation**.
+The application is intentionally small so the main focus can stay on the full delivery lifecycle: **application development, persistent storage, containerization, orchestration, infrastructure configuration and CI/CD**.
 
 ## Recruiter Snapshot
 
-This project demonstrates practical experience with:
+This project currently demonstrates practical experience with:
 
-* Python and FastAPI backend development
-* HTTP GET/POST request handling
-* HTML forms and server-side rendering with Jinja2
-* basic application data modelling
-* Git-based development workflow
-* project dependency management with Python virtual environments
-* Docker containerization
-* Kubernetes and Minikube
-* Infrastructure as Code with Terraform
-* CI/CD automation with GitHub Actions
+- Python and FastAPI backend development
+- asynchronous MongoDB integration with PyMongo
+- Jinja2 server-side rendering and HTML forms
+- Docker image creation with a custom Dockerfile
+- multi-container environments with Docker Compose
+- Docker networking, environment variables and persistent volumes
+- Kubernetes Deployments and Services
+- Kubernetes PersistentVolumeClaims
+- Kubernetes ConfigMaps
+- local Kubernetes deployment with Minikube
+- Git-based incremental development
 
-The project is developed incrementally so that every infrastructure component is configured and understood separately.
+Still being added:
+
+- GitHub Actions CI/CD
+- GitHub Container Registry
+- Terraform Infrastructure as Code
+- extended automated testing
 
 ---
 
-## What Has Been Implemented
+## Current Status
 
-### Python / FastAPI
+| Technology | Purpose | Status |
+|---|---|---|
+| Python | Application backend | ✅ Implemented |
+| FastAPI | Web framework | ✅ Implemented |
+| Jinja2 | Server-side HTML rendering | ✅ Implemented |
+| MongoDB | Persistent Todo storage | ✅ Implemented |
+| PyMongo Async | Asynchronous database access | ✅ Implemented |
+| Docker | Application containerization | ✅ Implemented |
+| Docker Compose | Local multi-container stack | ✅ Implemented |
+| Kubernetes | Container orchestration | ✅ Implemented |
+| Minikube | Local Kubernetes cluster | ✅ Implemented |
+| PersistentVolumeClaim | MongoDB persistence in Kubernetes | ✅ Implemented |
+| ConfigMap | Application configuration | ✅ Implemented |
+| pytest | Test scaffolding | 🔄 In progress |
+| GitHub Actions | CI/CD automation | ⏳ Next stage |
+| GHCR | Container image registry | ⏳ Planned |
+| Terraform | Infrastructure as Code | ⏳ Planned |
 
-* [x] Created a FastAPI web application from scratch
-* [x] Implemented application routing
-* [x] Implemented `GET /`
-* [x] Implemented `POST /add`
-* [x] Implemented `POST /delete`
-* [x] Added asynchronous request handling
-* [x] Implemented HTML form processing
-* [x] Added reusable template rendering logic
-* [x] Added unique IDs for Todo objects
-* [x] Implemented Todo creation and deletion logic
+---
 
-Todo objects currently use the following structure:
+## Application Features
+
+The current application supports:
+
+- [x] displaying Todo items
+- [x] adding Todo items
+- [x] deleting Todo items
+- [x] persistent storage in MongoDB
+- [x] asynchronous database operations
+- [x] server-side HTML rendering with Jinja2
+- [x] configuration through environment variables
+
+A Todo document is stored in MongoDB approximately as:
 
 ```python
 {
-    "id": 1,
+    "_id": ObjectId(...),
     "title": "Learn Kubernetes"
 }
 ```
-
----
-
-### Frontend / Templates
-
-* [x] Created a minimal HTML interface
-* [x] Integrated Jinja2 with FastAPI
-* [x] Dynamically rendered Todo items
-* [x] Implemented HTML forms for adding tasks
-* [x] Implemented task deletion using hidden form values
-* [x] Connected frontend forms with FastAPI endpoints
-
----
-
-### Python Environment & Dependencies
-
-* [x] Created isolated Python virtual environment
-* [x] Managed application dependencies with `pip`
-* [x] Created `requirements.txt`
-* [x] Configured Uvicorn development server
-* [x] Debugged Python environment and dependency issues
-
----
-
-## DevOps Stack
-
-| Technology     | Purpose                      | Status        |
-| -------------- | ---------------------------- | ------------- |
-| Python         | Application backend          | ✅ Implemented |
-| FastAPI        | Web framework / API          | ✅ Implemented |
-| Jinja2         | Server-side HTML rendering   | ✅ Implemented |
-| Git / GitHub   | Source control               | ✅ In use      |
-| Database       | Persistent Todo storage      | 🔄 Next stage |
-| Docker         | Application containerization | ⏳ Planned     |
-| Kubernetes     | Container orchestration      | ⏳ Planned     |
-| Minikube       | Local Kubernetes cluster     | ⏳ Planned     |
-| Terraform      | Infrastructure as Code       | ⏳ Planned     |
-| GitHub Actions | CI/CD automation             | ⏳ Planned     |
-| GHCR           | Docker image registry        | ⏳ Planned     |
 
 ---
 
@@ -92,290 +78,156 @@ Todo objects currently use the following structure:
 
 ```mermaid
 flowchart LR
+    USER[Web Browser]
+    APP[FastAPI]
+    JINJA[Jinja2 Templates]
+    MONGO[(MongoDB)]
 
-    User[Web Browser]
-
-    User -->|GET /| API[FastAPI]
-    User -->|POST /add| API
-    User -->|POST /delete| API
-
-    API --> Jinja[Jinja2 Templates]
-    API --> Todos[In-memory Todo Storage]
-
-    Jinja --> HTML[index.html]
+    USER -->|GET /| APP
+    USER -->|POST /add| APP
+    USER -->|POST /delete| APP
+    APP --> JINJA
+    APP -->|Async PyMongo| MONGO
+    JINJA --> USER
 ```
 
-Currently, Todo objects are stored in application memory.
-
-This is intentionally temporary and will be replaced with persistent database storage.
-
----
-
-## Target DevOps Architecture
-
-```mermaid
-flowchart TD
-
-    DEV[Developer]
-
-    DEV -->|git push| GH[GitHub Repository]
-
-    GH --> ACTIONS[GitHub Actions]
-
-    ACTIONS --> TEST[Automated Tests]
-
-    TEST --> BUILD[Docker Build]
-
-    BUILD --> REGISTRY[GitHub Container Registry]
-
-    REGISTRY --> K8S[Kubernetes / Minikube]
-
-    TF[Terraform] --> K8S
-
-    K8S --> APP[FastAPI Containers]
-
-    APP --> DB[(Database)]
-
-    DB --> STORAGE[Persistent Storage]
-```
-
-The final workflow will follow:
-
-```text
-Code
-  ↓
-GitHub
-  ↓
-GitHub Actions
-  ↓
-Tests
-  ↓
-Docker Build
-  ↓
-Container Registry
-  ↓
-Terraform
-  ↓
-Kubernetes
-  ↓
-Running Application
-```
-
----
-
-# Skills Demonstrated
-
-## Python
-
-The application demonstrates practical knowledge of:
-
-* functions
-* dictionaries and lists
-* loops and conditions
-* global application state
-* asynchronous functions
-* Python type annotations
-* dependency management
-* virtual environments
-
----
-
-## FastAPI
-
-Implemented concepts include:
-
-* FastAPI application initialization
-* endpoint routing
-* GET and POST requests
-* `Request` objects
-* asynchronous request processing
-* form parsing
-* template responses
-* separation of reusable application logic
-
-Example request flow:
-
-```mermaid
-sequenceDiagram
-
-    participant User
-    participant Browser
-    participant FastAPI
-    participant Storage
-    participant Jinja2
-
-    User->>Browser: Enter Todo
-
-    Browser->>FastAPI: POST /add
-
-    FastAPI->>FastAPI: Parse form
-
-    FastAPI->>Storage: Add Todo
-
-    Storage-->>FastAPI: Updated data
-
-    FastAPI->>Jinja2: Render index.html
-
-    Jinja2-->>Browser: HTML response
-
-    Browser-->>User: Updated Todo list
-```
+The application no longer uses temporary in-memory Todo storage. Todo data is persisted in MongoDB.
 
 ---
 
 ## Docker
 
-The containerization stage will demonstrate:
+The application has been containerized using a custom `Dockerfile` based on a slim Python image.
 
-* writing Dockerfiles
-* Docker image creation
-* application containerization
-* dependency installation inside containers
-* environment variables
-* container networking
-* container image versioning
+Implemented Docker concepts:
 
-Planned workflow:
+- [x] Dockerfile creation
+- [x] Python dependency installation inside the image
+- [x] Uvicorn startup command
+- [x] port exposure
+- [x] Docker image build
+- [x] running FastAPI inside a container
+- [x] container networking
+- [x] environment-based MongoDB configuration
 
-```text
-Application
-     ↓
-Dockerfile
-     ↓
-docker build
-     ↓
-Docker Image
-     ↓
-Container
+### Docker Compose
+
+A Docker Compose stack is used to run FastAPI and MongoDB together.
+
+```mermaid
+flowchart LR
+    USER[Browser]
+    APP[FastAPI Container]
+    DB[(MongoDB Container)]
+    VOLUME[(Docker Volume)]
+
+    USER -->|localhost:8000| APP
+    APP -->|mongodb:27017| DB
+    DB --> VOLUME
+```
+
+The Compose setup provides:
+
+- FastAPI application container
+- MongoDB 8 container
+- automatic internal Docker networking
+- persistent MongoDB volume
+- application environment variables
+- dependency ordering between services
+
+The complete local stack can be started with:
+
+```bash
+docker compose up --build
 ```
 
 ---
 
-## Kubernetes
+## Kubernetes / Minikube
 
-The Kubernetes stage will demonstrate:
+The Dockerized application has also been deployed to a local Kubernetes cluster using Minikube.
 
-* Pods
-* Deployments
-* ReplicaSets
-* Services
-* ConfigMaps
-* Secrets
-* PersistentVolumeClaims
-* scaling
-* rolling updates
-* container orchestration
-* local clusters with Minikube
+Implemented Kubernetes resources and concepts:
 
-Target Kubernetes architecture:
+- [x] FastAPI Deployment
+- [x] FastAPI Service
+- [x] MongoDB Deployment
+- [x] MongoDB ClusterIP Service
+- [x] MongoDB PersistentVolumeClaim
+- [x] ConfigMap for application configuration
+- [x] NodePort access to the application
+- [x] local Docker image loading into Minikube
+- [x] Pod and Service verification with `kubectl`
+- [x] end-to-end communication between FastAPI and MongoDB inside the cluster
+
+### Current Kubernetes Architecture
 
 ```mermaid
 flowchart TD
+    USER[Web Browser]
 
-    USER[User]
+    USER -->|NodePort| APP_SERVICE[Todo App Service]
+    APP_SERVICE --> APP_DEPLOY[FastAPI Deployment]
+    APP_DEPLOY --> APP_POD[FastAPI Pod]
 
-    USER --> SERVICE[Kubernetes Service]
+    CONFIG[ConfigMap] --> APP_POD
 
-    SERVICE --> DEPLOY[FastAPI Deployment]
+    APP_POD -->|mongodb:27017| DB_SERVICE[MongoDB Service]
+    DB_SERVICE --> DB_DEPLOY[MongoDB Deployment]
+    DB_DEPLOY --> DB_POD[MongoDB Pod]
 
-    DEPLOY --> POD1[FastAPI Pod]
-    DEPLOY --> POD2[FastAPI Pod]
-
-    POD1 --> DBSERVICE[Database Service]
-    POD2 --> DBSERVICE
-
-    DBSERVICE --> DB[(Database)]
-
-    DB --> PVC[(Persistent Volume Claim)]
+    PVC[(PersistentVolumeClaim)] --> DB_POD
 ```
+
+This stage demonstrates the transition from a local Docker Compose environment to container orchestration with Kubernetes.
 
 ---
 
-## Terraform
+## Configuration Flow
 
-Terraform will be used to manage infrastructure declaratively.
-
-The project will demonstrate:
-
-* Infrastructure as Code
-* Terraform providers
-* resources
-* variables
-* outputs
-* Terraform state
-* `terraform init`
-* `terraform plan`
-* `terraform apply`
-* infrastructure lifecycle management
-
-```mermaid
-flowchart LR
-
-    CONFIG[Terraform Configuration]
-
-    CONFIG --> INIT[terraform init]
-
-    INIT --> PLAN[terraform plan]
-
-    PLAN --> APPLY[terraform apply]
-
-    APPLY --> K8S[Kubernetes Resources]
-```
-
----
-
-## GitHub Actions / CI-CD
-
-The final CI/CD pipeline will automate the application delivery process.
-
-It will demonstrate:
-
-* workflow YAML configuration
-* automated testing
-* Docker image building
-* Docker image tagging
-* authentication with container registries
-* pushing images to GitHub Container Registry
-* Terraform validation
-* deployment automation
-* GitHub Secrets management
-
-Target pipeline:
-
-```mermaid
-flowchart LR
-
-    PUSH[Git Push]
-
-    PUSH --> TEST[Tests]
-
-    TEST --> BUILD[Docker Build]
-
-    BUILD --> GHCR[GHCR]
-
-    GHCR --> TF[Terraform]
-
-    TF --> K8S[Kubernetes]
-
-    K8S --> DEPLOY[Application Deployment]
-```
-
----
-
-# Repository Structure
+The application reads MongoDB configuration from environment variables:
 
 ```text
-TODO_DEVOPS_PROJECT/
+MONGODB_URI
+MONGODB_DB
+```
+
+The source of those values depends on the environment:
+
+```mermaid
+flowchart LR
+    LOCAL[Local Python] --> ENV[.env]
+    COMPOSE[Docker Compose] --> COMPOSE_ENV[Compose environment]
+    K8S[Kubernetes] --> CONFIGMAP[ConfigMap]
+
+    ENV --> APP[FastAPI]
+    COMPOSE_ENV --> APP
+    CONFIGMAP --> APP
+```
+
+This keeps application code independent from the environment where it is running.
+
+---
+
+## Repository Structure
+
+```text
+Todo_DevOps_project/
 │
 ├── app/
+│   ├── database.py
 │   ├── main.py
-│   │
+│   ├── models.py
+│   ├── static/
 │   └── templates/
 │       └── index.html
 │
 ├── tests/
+│   ├── test_app.py
+│   └── test_db.py
 │
 ├── k8s/
+│   └── Kubernetes manifests
 │
 ├── terraform/
 │
@@ -383,82 +235,118 @@ TODO_DEVOPS_PROJECT/
 │   └── workflows/
 │
 ├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-# Project Roadmap
+## Development Progress
 
 ### Application
 
-* [x] FastAPI application
-* [x] Jinja2 integration
-* [x] Todo creation
-* [x] Todo deletion
-* [x] Todo IDs
-* [x] dynamic Todo rendering
-* [ ] Todo editing
-* [ ] input validation
+- [x] FastAPI application
+- [x] Jinja2 integration
+- [x] Todo creation
+- [x] Todo deletion
+- [x] MongoDB ObjectId handling
+- [x] persistent Todo storage
+- [x] asynchronous MongoDB access
+- [ ] Todo editing
+- [ ] stronger input validation
 
 ### Database
 
-* [ ] Add persistent database
-* [ ] Create Todo model
-* [ ] Move storage logic outside `main.py`
-* [ ] Replace in-memory Todo list
+- [x] MongoDB integration
+- [x] database configuration through environment variables
+- [x] asynchronous connection with PyMongo
+- [x] persistent Docker storage
+- [x] persistent Kubernetes storage with PVC
 
 ### Docker
 
-* [ ] Create Dockerfile
-* [ ] Build Docker image
-* [ ] Run application in container
-* [ ] Configure application environment
-* [ ] Add database container
+- [x] Dockerfile
+- [x] Docker image build
+- [x] application container
+- [x] MongoDB container
+- [x] Docker networking
+- [x] Docker Compose
+- [x] persistent named volume
+- [x] environment configuration
 
 ### Kubernetes
 
-* [ ] Create Deployment
-* [ ] Create Service
-* [ ] Configure application replicas
-* [ ] Add ConfigMap
-* [ ] Add Secrets
-* [ ] Add persistent database storage
-* [ ] Deploy using Minikube
-* [ ] Test scaling
-* [ ] Test rolling updates
+- [x] MongoDB PersistentVolumeClaim
+- [x] MongoDB Deployment
+- [x] MongoDB Service
+- [x] FastAPI Deployment
+- [x] FastAPI Service
+- [x] ConfigMap
+- [x] Minikube deployment
+- [x] application exposed through NodePort
+- [x] end-to-end application test in Kubernetes
+- [ ] Secrets
+- [ ] readiness and liveness probes
+- [ ] resource requests and limits
+- [ ] scaling tests
+- [ ] rolling update tests
+
+### Testing
+
+- [x] pytest test structure created
+- [x] basic application endpoint test
+- [x] separate test environment configuration
+- [ ] refine asynchronous MongoDB integration tests
+- [ ] integrate tests into CI
+
+### GitHub Actions / CI-CD
+
+Next development stage:
+
+- [ ] create CI workflow
+- [ ] install Python dependencies automatically
+- [ ] run automated tests
+- [ ] validate/build Docker image
+- [ ] tag container images
+- [ ] push images to GHCR
+- [ ] add deployment automation
+
+Target pipeline:
+
+```mermaid
+flowchart LR
+    PUSH[Git Push / Pull Request]
+    TEST[Automated Tests]
+    BUILD[Docker Build]
+    GHCR[GitHub Container Registry]
+    K8S[Kubernetes]
+
+    PUSH --> TEST
+    TEST --> BUILD
+    BUILD --> GHCR
+    GHCR --> K8S
+```
 
 ### Terraform
 
-* [ ] Configure provider
-* [ ] Define infrastructure
-* [ ] Create variables
-* [ ] Create outputs
-* [ ] Manage Kubernetes resources with Terraform
+Planned after the CI/CD foundation:
 
-### GitHub Actions
-
-* [ ] Run application tests
-* [ ] Build Docker image automatically
-* [ ] Push image to GHCR
-* [ ] Validate Terraform
-* [ ] Deploy updated application
-* [ ] Create complete CI/CD pipeline
+- [ ] configure Terraform provider
+- [ ] define infrastructure declaratively
+- [ ] add variables and outputs
+- [ ] use Terraform state
+- [ ] run `terraform init`, `plan` and `apply`
+- [ ] integrate Terraform validation with CI
 
 ---
 
-# Local Development
+## Local Development
 
-Create virtual environment:
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
-```
-
-Activate it:
-
-```bash
 source .venv/bin/activate
 ```
 
@@ -468,7 +356,7 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Run the development server:
+Run FastAPI locally:
 
 ```bash
 python -m uvicorn app.main:app --reload
@@ -482,12 +370,66 @@ http://127.0.0.1:8000
 
 ---
 
+## Running with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+Application:
+
+```text
+http://localhost:8000
+```
+
+---
+
+## Running with Minikube
+
+After applying the Kubernetes manifests and loading the local application image into Minikube:
+
+```bash
+kubectl get pods
+kubectl get svc
+minikube service todo-app --url
+```
+
+The Kubernetes deployment currently provides persistent MongoDB storage and application configuration through a ConfigMap.
+
+---
+
+## Next Stage
+
+The next milestone is **GitHub Actions CI/CD**.
+
+The planned first workflow will run on pushes and pull requests to `main` and will progressively add:
+
+```text
+Git Push / Pull Request
+        ↓
+GitHub Actions
+        ↓
+Dependency installation
+        ↓
+Tests
+        ↓
+Docker image validation/build
+        ↓
+GHCR
+        ↓
+Kubernetes deployment
+```
+
+---
+
 ## Project Objective
 
-The Todo application serves as a simple workload for demonstrating a complete DevOps lifecycle.
+The Todo application is deliberately simple. Its purpose is to provide a real workload for learning and demonstrating the complete DevOps lifecycle.
 
-The main focus of the repository is not application complexity, but practical integration of:
+The project currently covers the path from application code to a persistent, containerized and Kubernetes-orchestrated deployment:
 
-**Python · FastAPI · Git · Docker · Kubernetes · Minikube · Terraform · GitHub Actions · CI/CD**
+**Python · FastAPI · MongoDB · Docker · Docker Compose · Kubernetes · Minikube · ConfigMap · PersistentVolumeClaim**
 
-The project is being built from the application layer upward, allowing each DevOps component to be implemented, tested and understood independently.
+The next stages extend that lifecycle with:
+
+**GitHub Actions · GHCR · Terraform · CI/CD automation**
