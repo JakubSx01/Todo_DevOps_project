@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+concurrency: # Prevents concurrent runs of the same workflow
+  group: ${{ github.workflow }}-${{ github.ref }} # Group runs by workflow and ref
+  cancel-in-progress: true # Cancel in-progress runs when a new run is started
+
 # Old workflow for Docker build and push
 # jobs:
 #    docker-build:
@@ -57,7 +61,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10
+
     permissions:
       contents: read
     
@@ -88,7 +93,7 @@ jobs:
 
   terraform-check:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10
     permissions:
       contents: read
 
@@ -114,7 +119,7 @@ jobs:
       
   build:
     runs-on: ubuntu-latest
-  
+    timeout-minutes: 10
     needs: 
       - test
       - terraform-check
@@ -144,17 +149,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # Add latest tag if the branch is the default branch
+          # Add sha tag for the image
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha
+            type=raw,value=latest,enable={{is_default_branch}} 
+            type=sha 
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
-          push: ${{ github.event_name == 'push' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          push: ${{ github.event_name == 'push' }} # Push the image to the registry if the event is a push
+          tags: ${{ steps.meta.outputs.tags }} # Use the tags from the metadata action
+          labels: ${{ steps.meta.outputs.labels }} # Use the labels from the metadata action
+          cache-from: type=gha # Use the GHA cache
+          cache-to: type=gha,mode=max # Use the GHA cache with max mode
