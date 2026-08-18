@@ -11,9 +11,29 @@ on:
 jobs:
    docker-build:
      runs-on: ubuntu-latest
-     
+     services:
+      mongodb:
+        image: mongo:8
+        ports:
+          - 27017:27017
+
      steps:
      - uses: actions/checkout@v7
+     
+     - name: Set up Python 
+       uses: actions/setup-python@v7
+       with:
+         python-version: 3.14
+
+     - name: Install dependencies
+       run: pip install -r requirements.txt
+
+     - name: Run tests
+       env:
+          MONGODB_URI: mongodb://localhost:27017
+          MONGODB_DB: todo_app_test
+
+       run: python -m pytest
      
      - name: Build Docker image
        run: docker build -t todo-app .
