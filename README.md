@@ -2,7 +2,7 @@
 
 A hands-on DevOps project built around a simple Python Todo web application.
 
-The application is intentionally small so the main focus can stay on the full delivery lifecycle: **application development, persistent storage, containerization, orchestration, infrastructure configuration and CI/CD**.
+The application is intentionally small so the main focus can stay on the full delivery lifecycle: **application development, persistent storage, containerization, orchestration, automated testing, CI/CD and Infrastructure as Code**.
 
 ## Recruiter Snapshot
 
@@ -10,22 +10,26 @@ This project currently demonstrates practical experience with:
 
 - Python and FastAPI backend development
 - asynchronous MongoDB integration with PyMongo
+- FastAPI lifespan-based database resource management
 - Jinja2 server-side rendering and HTML forms
+- asynchronous application tests with pytest, HTTPX and `asgi-lifespan`
 - Docker image creation with a custom Dockerfile
 - multi-container environments with Docker Compose
 - Docker networking, environment variables and persistent volumes
-- Kubernetes Deployments and Services
-- Kubernetes PersistentVolumeClaims
-- Kubernetes ConfigMaps
+- Kubernetes Deployments, Services, ConfigMaps and PersistentVolumeClaims
 - local Kubernetes deployment with Minikube
+- GitHub Actions CI automation
+- MongoDB service containers in CI
+- automated Docker image builds
+- container image publication to GitHub Container Registry (GHCR)
 - Git-based incremental development
 
-Still being added:
+Next stages:
 
-- GitHub Actions CI/CD
-- GitHub Container Registry
+- use the GHCR image directly from Kubernetes
 - Terraform Infrastructure as Code
-- extended automated testing
+- Kubernetes health checks and resource configuration
+- deployment automation
 
 ---
 
@@ -38,15 +42,16 @@ Still being added:
 | Jinja2 | Server-side HTML rendering | ✅ Implemented |
 | MongoDB | Persistent Todo storage | ✅ Implemented |
 | PyMongo Async | Asynchronous database access | ✅ Implemented |
+| pytest / HTTPX | Asynchronous application tests | ✅ Implemented |
 | Docker | Application containerization | ✅ Implemented |
 | Docker Compose | Local multi-container stack | ✅ Implemented |
 | Kubernetes | Container orchestration | ✅ Implemented |
 | Minikube | Local Kubernetes cluster | ✅ Implemented |
 | PersistentVolumeClaim | MongoDB persistence in Kubernetes | ✅ Implemented |
 | ConfigMap | Application configuration | ✅ Implemented |
-| pytest | Test scaffolding | 🔄 In progress |
-| GitHub Actions | CI/CD automation | ⏳ Next stage |
-| GHCR | Container image registry | ⏳ Planned |
+| GitHub Actions | Automated CI pipeline | ✅ Implemented |
+| GHCR | Container image registry | ✅ Implemented |
+| Kubernetes + GHCR | Pull published image from registry | 🔄 Next stage |
 | Terraform | Infrastructure as Code | ⏳ Planned |
 
 ---
@@ -62,6 +67,7 @@ The current application supports:
 - [x] asynchronous database operations
 - [x] server-side HTML rendering with Jinja2
 - [x] configuration through environment variables
+- [x] MongoDB client lifecycle managed through FastAPI lifespan
 
 A Todo document is stored in MongoDB approximately as:
 
@@ -91,7 +97,30 @@ flowchart LR
     JINJA --> USER
 ```
 
-The application no longer uses temporary in-memory Todo storage. Todo data is persisted in MongoDB.
+The MongoDB client is created during FastAPI application startup and closed during shutdown using the application lifespan lifecycle.
+
+---
+
+## Automated Testing
+
+The project contains asynchronous application tests using:
+
+- `pytest`
+- `pytest-asyncio`
+- `httpx.AsyncClient`
+- `ASGITransport`
+- `asgi-lifespan`
+- a separate MongoDB test database
+
+Current automated tests cover:
+
+- [x] loading the Todo page
+- [x] adding a Todo item
+- [x] deleting a Todo item
+- [x] MongoDB-backed application behavior
+- [x] execution inside GitHub Actions
+
+The tests use the real FastAPI lifespan lifecycle so MongoDB resources are created and closed within the correct async event loop.
 
 ---
 
@@ -145,7 +174,7 @@ docker compose up --build
 
 ## Kubernetes / Minikube
 
-The Dockerized application has also been deployed to a local Kubernetes cluster using Minikube.
+The Dockerized application has been deployed to a local Kubernetes cluster using Minikube.
 
 Implemented Kubernetes resources and concepts:
 
@@ -159,6 +188,7 @@ Implemented Kubernetes resources and concepts:
 - [x] local Docker image loading into Minikube
 - [x] Pod and Service verification with `kubectl`
 - [x] end-to-end communication between FastAPI and MongoDB inside the cluster
+- [ ] replace the locally loaded application image with the image published to GHCR
 
 ### Current Kubernetes Architecture
 
@@ -179,7 +209,45 @@ flowchart TD
     PVC[(PersistentVolumeClaim)] --> DB_POD
 ```
 
-This stage demonstrates the transition from a local Docker Compose environment to container orchestration with Kubernetes.
+---
+
+## GitHub Actions CI/CD
+
+A GitHub Actions workflow now runs automatically for pushes and pull requests targeting `main`.
+
+Implemented pipeline stages:
+
+- [x] checkout repository
+- [x] configure Python 3.14
+- [x] install project dependencies
+- [x] start MongoDB 8 as a GitHub Actions service container
+- [x] configure a separate test database
+- [x] run the pytest test suite
+- [x] build the Docker image
+- [x] authenticate to GitHub Container Registry using `GITHUB_TOKEN`
+- [x] publish the `latest` image to GHCR on pushes
+- [x] avoid publishing images from pull request validation runs
+
+Current pipeline:
+
+```mermaid
+flowchart LR
+    PUSH[Git Push / Pull Request]
+    CI[GitHub Actions]
+    MONGO[(MongoDB 8 Service)]
+    TEST[pytest]
+    BUILD[Docker Build]
+    GHCR[GitHub Container Registry]
+
+    PUSH --> CI
+    CI --> MONGO
+    CI --> TEST
+    MONGO --> TEST
+    TEST --> BUILD
+    BUILD -->|push to main| GHCR
+```
+
+The important difference between the current CI/CD state and the next stage is that **the image is already published to GHCR, but the Minikube Deployment still uses the locally loaded image**.
 
 ---
 
@@ -199,13 +267,13 @@ flowchart LR
     LOCAL[Local Python] --> ENV[.env]
     COMPOSE[Docker Compose] --> COMPOSE_ENV[Compose environment]
     K8S[Kubernetes] --> CONFIGMAP[ConfigMap]
+    CI[GitHub Actions] --> CI_ENV[Test environment]
 
     ENV --> APP[FastAPI]
     COMPOSE_ENV --> APP
     CONFIGMAP --> APP
+    CI_ENV --> TESTS[pytest]
 ```
-
-This keeps application code independent from the environment where it is running.
 
 ---
 
@@ -233,6 +301,7 @@ Todo_DevOps_project/
 │
 ├── .github/
 │   └── workflows/
+│       └── ci.yml
 │
 ├── Dockerfile
 ├── docker-compose.yml
@@ -253,6 +322,7 @@ Todo_DevOps_project/
 - [x] MongoDB ObjectId handling
 - [x] persistent Todo storage
 - [x] asynchronous MongoDB access
+- [x] FastAPI lifespan database lifecycle
 - [ ] Todo editing
 - [ ] stronger input validation
 
@@ -286,6 +356,7 @@ Todo_DevOps_project/
 - [x] Minikube deployment
 - [x] application exposed through NodePort
 - [x] end-to-end application test in Kubernetes
+- [ ] use GHCR image in the FastAPI Deployment
 - [ ] Secrets
 - [ ] readiness and liveness probes
 - [ ] resource requests and limits
@@ -294,50 +365,36 @@ Todo_DevOps_project/
 
 ### Testing
 
-- [x] pytest test structure created
-- [x] basic application endpoint test
+- [x] pytest test structure
+- [x] asynchronous FastAPI endpoint tests
 - [x] separate test environment configuration
-- [ ] refine asynchronous MongoDB integration tests
-- [ ] integrate tests into CI
+- [x] MongoDB-backed integration testing
+- [x] FastAPI lifespan handling in tests
+- [x] tests integrated into GitHub Actions
 
 ### GitHub Actions / CI-CD
 
-Next development stage:
-
-- [ ] create CI workflow
-- [ ] install Python dependencies automatically
-- [ ] run automated tests
-- [ ] validate/build Docker image
-- [ ] tag container images
-- [ ] push images to GHCR
+- [x] CI workflow
+- [x] automatic Python dependency installation
+- [x] MongoDB service container for tests
+- [x] automated tests
+- [x] Docker image build
+- [x] GHCR authentication with `GITHUB_TOKEN`
+- [x] container image tagging
+- [x] push image to GHCR
+- [ ] deploy published image to Kubernetes
 - [ ] add deployment automation
-
-Target pipeline:
-
-```mermaid
-flowchart LR
-    PUSH[Git Push / Pull Request]
-    TEST[Automated Tests]
-    BUILD[Docker Build]
-    GHCR[GitHub Container Registry]
-    K8S[Kubernetes]
-
-    PUSH --> TEST
-    TEST --> BUILD
-    BUILD --> GHCR
-    GHCR --> K8S
-```
 
 ### Terraform
 
-Planned after the CI/CD foundation:
+Planned after connecting Kubernetes to the published GHCR image:
 
-- [ ] configure Terraform provider
-- [ ] define infrastructure declaratively
+- [ ] configure Terraform Kubernetes provider
+- [ ] define Kubernetes resources declaratively
 - [ ] add variables and outputs
 - [ ] use Terraform state
 - [ ] run `terraform init`, `plan` and `apply`
-- [ ] integrate Terraform validation with CI
+- [ ] integrate Terraform formatting and validation with CI
 
 ---
 
@@ -362,10 +419,26 @@ Run FastAPI locally:
 python -m uvicorn app.main:app --reload
 ```
 
-Open:
+If MongoDB is running only inside Minikube, expose it temporarily to the local application with:
+
+```bash
+kubectl port-forward svc/mongodb 27017:27017
+```
+
+Then open:
 
 ```text
 http://127.0.0.1:8000
+```
+
+---
+
+## Running Tests
+
+With a MongoDB instance available on the URI configured for the test environment:
+
+```bash
+python -m pytest -v
 ```
 
 ---
@@ -386,11 +459,12 @@ http://localhost:8000
 
 ## Running with Minikube
 
-After applying the Kubernetes manifests and loading the local application image into Minikube:
+With the current local-image deployment:
 
 ```bash
 kubectl get pods
 kubectl get svc
+kubectl get pvc
 minikube service todo-app --url
 ```
 
@@ -400,25 +474,23 @@ The Kubernetes deployment currently provides persistent MongoDB storage and appl
 
 ## Next Stage
 
-The next milestone is **GitHub Actions CI/CD**.
-
-The planned first workflow will run on pushes and pull requests to `main` and will progressively add:
+The next milestone is to connect Kubernetes to the image already published by CI to **GitHub Container Registry**.
 
 ```text
-Git Push / Pull Request
-        ↓
+Git Push
+   ↓
 GitHub Actions
-        ↓
-Dependency installation
-        ↓
+   ↓
 Tests
-        ↓
-Docker image validation/build
-        ↓
+   ↓
+Docker Build
+   ↓
 GHCR
-        ↓
-Kubernetes deployment
+   ↓
+Kubernetes pulls published image
 ```
+
+After that, the project will move to Terraform so the Kubernetes infrastructure can be represented and managed as Infrastructure as Code.
 
 ---
 
@@ -426,10 +498,10 @@ Kubernetes deployment
 
 The Todo application is deliberately simple. Its purpose is to provide a real workload for learning and demonstrating the complete DevOps lifecycle.
 
-The project currently covers the path from application code to a persistent, containerized and Kubernetes-orchestrated deployment:
+The project currently covers:
 
-**Python · FastAPI · MongoDB · Docker · Docker Compose · Kubernetes · Minikube · ConfigMap · PersistentVolumeClaim**
+**Python · FastAPI · MongoDB · pytest · Docker · Docker Compose · Kubernetes · Minikube · ConfigMap · PersistentVolumeClaim · GitHub Actions · GHCR**
 
 The next stages extend that lifecycle with:
 
-**GitHub Actions · GHCR · Terraform · CI/CD automation**
+**Kubernetes registry-based deployment · Terraform · CI/CD deployment automation**
