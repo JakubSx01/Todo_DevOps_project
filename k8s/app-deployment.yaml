@@ -18,8 +18,8 @@ spec:
     spec:
       containers:
         - name: todo-app
-          image: todo_devops_project-app
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/jakubsx01/todo_devops_project:latest
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 8000
