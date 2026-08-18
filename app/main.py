@@ -1,9 +1,28 @@
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
-from app.database import todos_collection
 from bson import ObjectId
+from contextlib import asynccontextmanager
+from pymongo import AsyncMongoClient
+from dotenv import load_dotenv
+import os
 
-app = FastAPI()
+load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    client = AsyncMongoClient(os.getenv("MONGODB_URI"))
+
+    db = client[os.getenv("MONGODB_DB")]
+
+    todos_collection = db["todos"]
+    
+    app.state.todos_collection = todos_collection
+    
+    yield
+    
+    await client.close()
+
+app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="app/templates")
 # Global variables for the todos list and the next id
 # todos = []
@@ -14,7 +33,7 @@ async def render_index(request : Request):
         request = request,
         name = "index.html",
         context = {
-            "todos": await todos_collection.find().to_list(None),
+            "todos": await request.app.state.todos_collection.find().to_list(None),
         }
     )
 
@@ -30,13 +49,13 @@ async def add_todo(request : Request):
     form = await request.form()
     title = form.get("title")
     if title:
-        await todos_collection.insert_one({"title": title})
+        await request.app.state.todos_collection.insert_one({"title": title})
     return await render_index(request)
 
 @app.post("/delete")
 async def delete_todo(request : Request):
     form = await request.form()
     todo_id = form.get("id")
-    await todos_collection.delete_one({"_id": ObjectId(todo_id)})
+    await request.app.state.todos_collection.delete_one({"_id": ObjectId(todo_id)})
 
     return await render_index(request)
