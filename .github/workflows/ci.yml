@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+   docker-build:
+     runs-on: ubuntu-latest
+     
+     steps:
+     - uses: actions/checkout@v7
+     
+     - name: Build Docker image
+       run: docker build -t todo-app .
+      
