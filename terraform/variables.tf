@@ -10,6 +10,12 @@ variable "app_image" {
   default     = "ghcr.io/jakubsx01/todo_devops_project:latest"
 }
 
+variable "base_path" {
+  description = "Base path for the Todo application"
+  type        = string
+  default     = "/todo-devops-project"
+}
+
 variable "mongodb_image" {
   description = "Docker image used by the MongoDB database"
   type        = string

@@ -15,6 +15,7 @@ resource "kubernetes_config_map_v1" "app_config_map" {
   data = {
     MONGODB_URI = "mongodb://mongodb:27017/"
     MONGODB_DB  = "todo_app"
+    BASE_PATH   = var.base_path
   }
 }
 

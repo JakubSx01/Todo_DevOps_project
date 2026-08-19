@@ -7,7 +7,7 @@
 </head>
 <body>
     <h1>Todo App</h1>
-    <form action="/add" method="post">
+    <form action="{{ base_path }}/add" method="post">
         <input type="text" name="title" placeholder="Add a new todo">
         <button type="submit">Add</button>
     </form>
@@ -17,7 +17,7 @@
         {% for todo in todos %}
         <li>{{ todo.title }}
 
-        <form action="/delete" method="post">
+        <form action="{{ base_path }}/delete" method="post">
             <button type="submit">Delete</button>
             <input type="hidden" name="id" value="{{ todo._id }}">
         </form>

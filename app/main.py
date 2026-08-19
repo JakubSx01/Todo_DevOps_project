@@ -9,6 +9,7 @@ from pymongo.errors import PyMongoError
 from fastapi.responses import JSONResponse
 
 load_dotenv()
+BASE_PATH = os.getenv("BASE_PATH", "").rsrtip("/")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,6 +35,7 @@ async def render_index(request : Request):
         name = "index.html",
         context = {
             "todos": await request.app.state.todos_collection.find().to_list(None),
+            "base_path": BASE_PATH,
         }
     )
 
