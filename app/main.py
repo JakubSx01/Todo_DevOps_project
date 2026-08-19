@@ -5,17 +5,20 @@ from contextlib import asynccontextmanager
 from pymongo import AsyncMongoClient
 from dotenv import load_dotenv
 import os
+from pymongo.errors import PyMongoError
+from fastapi.responses import JSONResponse
 
 load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    client = AsyncMongoClient(os.getenv("MONGODB_URI"))
+    client = AsyncMongoClient(os.getenv("MONGODB_URI"), serverSelectionTimeoutMS=2000)
 
     db = client[os.getenv("MONGODB_DB")]
 
     todos_collection = db["todos"]
     
+    app.state.mongodb_client = client
     app.state.todos_collection = todos_collection
     
     yield
@@ -24,9 +27,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="app/templates")
-# Global variables for the todos list and the next id
-# todos = []
-# next_id = 1
 
 async def render_index(request : Request):
     return templates.TemplateResponse(
@@ -59,3 +59,15 @@ async def delete_todo(request : Request):
     await request.app.state.todos_collection.delete_one({"_id": ObjectId(todo_id)})
 
     return await render_index(request)
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+@app.get("/ready")
+async def readiness_check(request : Request):
+    try:
+        await request.app.state.mongodb_client.admin.command("ping")
+        return JSONResponse(content={"status": "ok"}, status_code=200)
+    except PyMongoError as e:
+        return JSONResponse(content={"status": "error"}, status_code=503)
