@@ -1,3 +1,11 @@
 .venv/
 .env
 .secret
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfvars
+
