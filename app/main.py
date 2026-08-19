@@ -9,7 +9,7 @@ from pymongo.errors import PyMongoError
 from fastapi.responses import JSONResponse
 
 load_dotenv()
-BASE_PATH = os.getenv("BASE_PATH", "").rsrtip("/")
+BASE_PATH = os.getenv("BASE_PATH", "").rstrip("/")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
