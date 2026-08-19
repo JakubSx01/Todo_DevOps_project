@@ -1,0 +1,27 @@
+name: Self-hosted Runner Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  runner-test:
+   runs-on: 
+    - self-hosted
+    - linux
+    - x64
+
+   steps:
+     - name: Check runner
+       run: |
+         echo "Runner works"
+         hostname
+         whoami
+    
+     - name: Check Kubernetes context
+       run: |
+        kubectl config current-context
+        kubectl get nodes
+
+     - name: Check Minikube
+       run: |
+        minikube status
