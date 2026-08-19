@@ -7,6 +7,7 @@ resource "kubernetes_namespace_v1" "todo_namespace" {
 
 # Kubernetes Config Map
 resource "kubernetes_config_map_v1" "app_config_map" {
+
   metadata {
     name      = "todo-app-config"
     namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
@@ -19,6 +20,7 @@ resource "kubernetes_config_map_v1" "app_config_map" {
 
 # Kubernetes Persistent Volume Claim
 resource "kubernetes_persistent_volume_claim_v1" "mongodb_pvc" {
+  wait_until_bound = false
   metadata {
     name      = "mongodb-pvc"
     namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
