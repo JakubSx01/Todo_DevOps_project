@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import os
 from pymongo.errors import PyMongoError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
 BASE_PATH = os.getenv("BASE_PATH", "").rstrip("/")
@@ -27,6 +28,13 @@ async def lifespan(app: FastAPI):
     await client.close()
 
 app = FastAPI(lifespan=lifespan)
+
+app.mount(
+    "/static",
+    StaticFiles(directory="app/static"),
+    name="static"
+)
+
 templates = Jinja2Templates(directory="app/templates")
 
 async def render_index(request : Request):
