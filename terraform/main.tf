@@ -2,7 +2,7 @@
 resource "kubernetes_config_map_v1" "app_config_map" {
   metadata {
     name      = "todo-app-config"
-    namespace = "default"
+    namespace = var.namespace
   }
   data = {
     MONGODB_URI = "mongodb://mongodb:27017/"
@@ -14,13 +14,13 @@ resource "kubernetes_config_map_v1" "app_config_map" {
 resource "kubernetes_persistent_volume_claim_v1" "mongodb_pvc" {
   metadata {
     name      = "mongodb-pvc"
-    namespace = "default"
+    namespace = var.namespace
   }
   spec {
     access_modes = ["ReadWriteOnce"]
     resources {
       requests = {
-        storage = "1Gi"
+        storage = var.mongodb_storage_size
       }
     }
   }
@@ -31,10 +31,10 @@ resource "kubernetes_deployment_v1" "mongodb_deployment" {
   wait_for_rollout = true
   metadata {
     name      = "mongodb"
-    namespace = "default"
+    namespace = var.namespace
   }
   spec {
-    replicas = 1
+    replicas = var.mongodb_replicas
     selector {
       match_labels = {
         app = "mongodb"
@@ -51,7 +51,7 @@ resource "kubernetes_deployment_v1" "mongodb_deployment" {
         enable_service_links            = false
         container {
           name  = "mongodb"
-          image = "mongo:8"
+          image = var.mongodb_image
           port {
             container_port = 27017
           }
@@ -76,7 +76,7 @@ resource "kubernetes_service_v1" "mongodb_service" {
   wait_for_load_balancer = false
   metadata {
     name      = "mongodb"
-    namespace = "default"
+    namespace = var.namespace
   }
   spec {
     selector = {
@@ -94,10 +94,10 @@ resource "kubernetes_deployment_v1" "todo_app_deployment" {
   wait_for_rollout = true
   metadata {
     name      = "todo-app"
-    namespace = "default"
+    namespace = var.namespace
   }
   spec {
-    replicas = 1
+    replicas = var.app_replicas
     selector {
       match_labels = {
         app = "todo-app"
@@ -114,7 +114,7 @@ resource "kubernetes_deployment_v1" "todo_app_deployment" {
         enable_service_links            = false
         container {
           name              = "todo-app"
-          image             = "ghcr.io/jakubsx01/todo_devops_project:latest"
+          image             = var.app_image
           image_pull_policy = "Always"
           port {
             container_port = 8000
@@ -134,7 +134,7 @@ resource "kubernetes_service_v1" "todo_app_service" {
   wait_for_load_balancer = false
   metadata {
     name      = "todo-app"
-    namespace = "default"
+    namespace = var.namespace
   }
   spec {
     selector = {
