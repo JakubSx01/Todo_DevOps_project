@@ -1,6 +1,6 @@
 terraform {
   backend "local" {}
-  
+
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
