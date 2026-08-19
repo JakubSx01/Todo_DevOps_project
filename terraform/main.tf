@@ -151,6 +151,31 @@ resource "kubernetes_service_v1" "todo_app_service" {
       port        = 8000
       target_port = 8000
     }
-    type = "NodePort"
+    type = "ClusterIP"
   }
 }
+
+# resource "kubernetes_ingress_v1" "todo_app_ingress" {
+#   metadata {
+#     name      = "todo-app"
+#     namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
+#   }
+#   spec {
+#     ingress_class_name = "traefik"
+#     rule {
+#       host = "todo-app.example.com"
+#       http {
+#         path {
+#           path = "/"
+#           path_type = "Prefix"
+
+#           backend {
+#             service {
+#               name = kubernetes_service_v1.todo_app_service.metadata[0].name
+#               port {
+#                 number = 8000
+#               }
+#             }
+#           }
+#         }
+#       }
