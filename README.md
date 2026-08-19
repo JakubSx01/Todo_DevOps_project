@@ -1,6 +1,10 @@
 # TODO DevOps Project
 
-A hands-on DevOps project built around a small FastAPI Todo application. The application is intentionally simple so the project can focus on the delivery lifecycle: **development, testing, containerization, orchestration, CI/CD and Infrastructure as Code**.
+A hands-on DevOps portfolio project built around a deliberately small FastAPI Todo application. The application itself is simple so the project can focus on the full delivery lifecycle: **development, automated testing, containerization, CI/CD, Infrastructure as Code, Kubernetes and homelab operations**.
+
+The current version is deployed automatically to a **single-node K3s cluster running inside a Debian VM on Proxmox**. Public access is provided through **Tailscale Funnel → Traefik Ingress → Kubernetes Service** without exposing ports on the home router.
+
+---
 
 ## Project Snapshot
 
@@ -10,15 +14,21 @@ The project currently demonstrates practical work with:
 - asynchronous MongoDB access with PyMongo
 - pytest, HTTPX and ASGI lifespan testing
 - Docker and Docker Compose
-- Kubernetes and Minikube
-- ConfigMaps, Services, Deployments and PersistentVolumeClaims
+- Kubernetes with K3s
+- Kubernetes namespaces, Deployments, Services, ConfigMaps, PVCs and Ingress
+- Traefik as the K3s ingress controller
+- Tailscale Funnel for public HTTPS access
 - GitHub Container Registry (GHCR)
-- Terraform with the Kubernetes provider
-- GitHub Actions with parallel validation jobs, dependency caching and Docker Buildx
-- immutable image identification with Git SHA tags
-- CI concurrency control, timeouts and least-privilege job permissions
-
-The current local platform is fully represented in Terraform and `terraform plan` reports no drift between the configuration, Terraform state and the running Kubernetes resources.
+- Terraform with the HashiCorp Kubernetes provider
+- persistent Terraform state outside the GitHub Actions workspace
+- GitHub Actions CI on GitHub-hosted runners
+- GitHub Actions CD on a self-hosted homelab runner
+- immutable application deployment using Git SHA image tags
+- Docker Buildx and GitHub Actions cache
+- non-root application containers
+- `/health` and `/ready` application endpoints
+- base-path aware routing for reverse-proxy deployment
+- static CSS assets served by FastAPI
 
 ---
 
@@ -27,53 +37,232 @@ The current local platform is fully represented in Terraform and `terraform plan
 | Area | Status | Notes |
 |---|---|---|
 | FastAPI application | ✅ | Add, list and delete Todo items |
-| MongoDB persistence | ✅ | Async PyMongo integration |
-| Automated tests | ✅ | pytest + HTTPX + real MongoDB service in CI |
-| Docker | ✅ | Custom application image |
-| Docker Compose | ✅ | FastAPI + MongoDB local stack |
-| Kubernetes / Minikube | ✅ | Application and database deployed locally |
-| GHCR | ✅ | Images published from GitHub Actions |
-| Kubernetes + GHCR | ✅ | Minikube pulls the published application image |
-| Terraform | ✅ | Existing Kubernetes stack managed through IaC |
-| Terraform CI validation | ✅ | `fmt`, `init` and `validate` |
-| Optimized Docker CI | ✅ | Buildx, GHA cache, `latest` + SHA tags |
-| Automated Kubernetes deployment | 🔄 | Next CI/CD milestone |
-| Application hardening | ⏳ | Planned |
-| Kubernetes Secrets / MongoDB auth | ⏳ | Planned |
+| MongoDB persistence | ✅ | Async PyMongo + persistent K3s volume |
+| Automated tests | ✅ | pytest + HTTPX + MongoDB service in CI |
+| Docker | ✅ | Non-root application image |
+| Docker Compose | ✅ | Local FastAPI + MongoDB stack |
+| Kubernetes / K3s | ✅ | Single-node homelab cluster |
+| Terraform | ✅ | K3s resources managed through IaC |
+| Persistent Terraform backend | ✅ | State stored outside runner workspace |
+| GHCR | ✅ | `latest` and long Git SHA tags |
+| CI pipeline | ✅ | tests + Terraform validation + image build |
+| Automated K3s deployment | ✅ | Self-hosted GitHub Actions runner |
+| Traefik Ingress | ✅ | Routes cluster traffic to the Todo service |
+| Tailscale Funnel | ✅ | Public HTTPS access without router port forwarding |
+| Base-path support | ✅ | Application mounted under `/todo-devops-project` |
+| Static CSS | ✅ | FastAPI `StaticFiles` integration |
+| Health endpoints | ✅ | `/health` and Mongo-backed `/ready` |
+| Kubernetes health probes | ⏳ | Planned hardening |
+| Resource limits / securityContext | ⏳ | Planned hardening |
+| Kubernetes Secrets / MongoDB auth | ⏳ | Planned hardening |
+| Additional Todo features | ⏳ | Next application milestone |
 
 ---
 
-## System Architecture
+## Homelab Architecture
 
 ```mermaid
 flowchart LR
-    U([Browser])
+    U([Internet Browser])
+    TS["Tailscale Funnel\nHTTPS /todo-devops-project"]
 
-    subgraph K8S["Minikube / Kubernetes Cluster"]
-        direction LR
+    subgraph PVE["Proxmox Host"]
+        subgraph VM["Debian 13 VM - homelab-node"]
+            TR["Traefik Ingress\n:80 / :443"]
 
-        subgraph APP["Todo Application"]
-            SVC_APP["NodePort Service<br/>todo-app :8000"]
-            POD_APP["FastAPI Pod<br/>GHCR image"]
-            CFG["ConfigMap<br/>MongoDB connection settings"]
-        end
-
-        subgraph DATA["Data Layer"]
-            SVC_DB["ClusterIP Service<br/>mongodb :27017"]
-            POD_DB["MongoDB 8 Pod"]
-            PVC[("PersistentVolumeClaim<br/>1 GiB")]
+            subgraph K3S["K3s Cluster"]
+                NS["Namespace: todo"]
+                APP_SVC["ClusterIP Service\ntodo-app :8000"]
+                APP["FastAPI Pod\nGHCR SHA-tagged image"]
+                CFG["ConfigMap\nMongoDB + BASE_PATH"]
+                DB_SVC["ClusterIP Service\nmongodb :27017"]
+                DB["MongoDB 8 Pod"]
+                PVC[("PVC\n1 GiB local-path")]
+            end
         end
     end
 
-    U -->|HTTP| SVC_APP
-    SVC_APP --> POD_APP
-    CFG -. environment .-> POD_APP
-    POD_APP -->|MongoDB protocol| SVC_DB
-    SVC_DB --> POD_DB
-    PVC --- POD_DB
+    U -->|HTTPS| TS
+    TS -->|HTTP localhost:80| TR
+    TR --> APP_SVC
+    APP_SVC --> APP
+    CFG -. environment .-> APP
+    APP --> DB_SVC
+    DB_SVC --> DB
+    PVC --- DB
 ```
 
-The FastAPI container is pulled directly from GHCR. MongoDB is reachable only through its internal `ClusterIP` service, while the application is exposed locally through `NodePort`.
+No inbound router port forwarding is required. Tailscale Funnel terminates public HTTPS and forwards traffic to the local Traefik listener. Traefik then routes traffic through the Kubernetes `ClusterIP` service to the currently active application Pod.
+
+The application uses a configurable base path:
+
+```text
+/todo-devops-project
+```
+
+This allows generated form actions and static asset URLs to work correctly behind the Funnel path prefix while FastAPI continues to expose its internal routes as `/`, `/add`, `/delete` and `/static/...`.
+
+---
+
+## CI/CD Architecture
+
+```mermaid
+flowchart LR
+    DEV([Developer])
+    GH[GitHub]
+
+    subgraph CI["GitHub-hosted CI"]
+        TEST["pytest\nMongoDB service"]
+        TFCHK["Terraform\nfmt + init + validate"]
+        BUILD["Docker Buildx"]
+    end
+
+    GHCR["GitHub Container Registry"]
+
+    subgraph HOME["Homelab"]
+        RUNNER["Self-hosted runner\nhomelab-todo"]
+        TF["Terraform apply"]
+        K3S["K3s"]
+    end
+
+    DEV -->|git push main| GH
+    GH --> TEST
+    GH --> TFCHK
+    TEST --> BUILD
+    TFCHK --> BUILD
+    BUILD -->|latest + sha-<commit>| GHCR
+    GH -->|successful CI workflow_run| RUNNER
+    RUNNER --> TF
+    TF --> K3S
+    GHCR -->|pull exact SHA image| K3S
+```
+
+### CI
+
+`.github/workflows/ci.yml` runs on pushes and pull requests targeting `main`.
+
+The pipeline contains three responsibilities:
+
+1. **Test**
+   - Python 3.14
+   - MongoDB 8 service container
+   - dependency installation with pip cache
+   - pytest execution
+
+2. **Terraform check**
+   - `terraform fmt -check -recursive`
+   - `terraform init -backend=false -input=false`
+   - `terraform validate`
+
+3. **Build**
+   - waits for both validation jobs
+   - uses Docker Buildx
+   - uses GitHub Actions layer cache
+   - pushes images only for `push` events
+   - publishes `latest` on the default branch
+   - publishes a long Git SHA tag for traceable deployments
+
+### CD
+
+`.github/workflows/deploy.yml` is triggered after the `CI` workflow completes on `main`.
+
+The deploy job runs only when:
+
+- CI finished successfully
+- the original event was a `push`
+- the triggering actor is the repository owner
+
+The job runs on the dedicated self-hosted runner labelled `todo-deploy`, checks out the exact commit that passed CI and deploys the matching GHCR image:
+
+```text
+ghcr.io/jakubsx01/todo_devops_project:sha-<full-commit-sha>
+```
+
+This creates a direct relationship between source code, CI result, container image and the version running in K3s.
+
+---
+
+## Self-Hosted Deployment Runner
+
+The deployment runner runs on the homelab VM under a dedicated Unix account:
+
+```text
+github-runner
+```
+
+The account does not require normal interactive administration privileges. It has access to the K3s kubeconfig through the dedicated `k3s-admin` group and runs Terraform against the local cluster.
+
+The repository is public, so the self-hosted runner is intentionally restricted to deployment jobs and isolated inside the homelab VM. Pull request CI continues to run on GitHub-hosted runners and does not deploy to the cluster.
+
+---
+
+## Terraform
+
+Terraform manages the Kubernetes application stack in namespace `todo`.
+
+Managed resources currently include:
+
+- Kubernetes namespace
+- application ConfigMap
+- MongoDB PersistentVolumeClaim
+- MongoDB Deployment
+- MongoDB ClusterIP Service
+- Todo application Deployment
+- Todo application ClusterIP Service
+- Traefik Ingress
+
+```mermaid
+flowchart TB
+    TF["Terraform"]
+    NS["Namespace: todo"]
+    CM["ConfigMap"]
+    PVC["MongoDB PVC"]
+    DBDEP["MongoDB Deployment"]
+    DBSVC["MongoDB ClusterIP"]
+    APPDEP["Todo Deployment"]
+    APPSVC["Todo ClusterIP"]
+    ING["Traefik Ingress"]
+
+    TF --> NS
+    TF --> CM
+    TF --> PVC
+    TF --> DBDEP
+    TF --> DBSVC
+    TF --> APPDEP
+    TF --> APPSVC
+    TF --> ING
+
+    PVC --> DBDEP
+    CM --> APPDEP
+    ING --> APPSVC
+    APPSVC --> APPDEP
+    APPDEP --> DBSVC
+    DBSVC --> DBDEP
+```
+
+### Variables
+
+The Terraform configuration currently parameterizes:
+
+- namespace
+- application image
+- application base path
+- MongoDB image
+- application replica count
+- MongoDB replica count
+- MongoDB storage size
+
+### Terraform state
+
+The deployment workflow uses a local backend whose state is stored outside the ephemeral GitHub Actions `_work` directory:
+
+```text
+/home/github-runner/terraform-state/todo/terraform.tfstate
+```
+
+The deployment workflow initializes Terraform with this persistent backend before every `apply`.
+
+The MongoDB PVC uses K3s `local-path` storage. Because the default K3s StorageClass uses `WaitForFirstConsumer`, Terraform is configured not to block waiting for the PVC to become bound before the MongoDB Pod is created.
 
 ---
 
@@ -88,11 +277,15 @@ Current functionality:
 - [x] asynchronous database operations
 - [x] Jinja2 server-side rendering
 - [x] environment-based configuration
-- [x] MongoDB client lifecycle managed through FastAPI lifespan
+- [x] configurable reverse-proxy base path
+- [x] static CSS files
+- [x] `/health` endpoint
+- [x] `/ready` endpoint that verifies MongoDB connectivity
 - [ ] edit Todo items
 - [ ] mark Todo items as completed
-- [ ] improved CSS and client-side JavaScript
-- [ ] stronger input validation and error handling
+- [ ] additional simple Todo metadata / filtering
+- [ ] stronger input validation
+- [ ] improved error handling
 
 A Todo document is currently stored approximately as:
 
@@ -102,6 +295,32 @@ A Todo document is currently stored approximately as:
     "title": "Learn Kubernetes"
 }
 ```
+
+---
+
+## Health Endpoints
+
+Application liveness:
+
+```http
+GET /health
+```
+
+Expected response:
+
+```json
+{"status":"ok"}
+```
+
+Application readiness and MongoDB connectivity:
+
+```http
+GET /ready
+```
+
+A successful MongoDB ping returns HTTP `200`. A database connectivity error returns HTTP `503`.
+
+Kubernetes liveness and readiness probes based on these endpoints are planned as part of the next hardening stage.
 
 ---
 
@@ -116,36 +335,40 @@ The test suite uses:
 - `asgi-lifespan`
 - a dedicated MongoDB test database
 
-Current automated coverage includes:
+Current test coverage includes:
 
-- [x] loading the Todo page
-- [x] adding a Todo item
-- [x] deleting a Todo item
-- [x] MongoDB-backed application behavior
-- [x] FastAPI lifespan handling
-- [x] execution inside GitHub Actions
+- loading the Todo page
+- adding a Todo item
+- deleting a Todo item
+- MongoDB-backed application behavior
+- FastAPI lifespan handling
+- reverse-proxy base-path HTML generation
+- execution inside GitHub Actions
 
-The CI test job starts MongoDB 8 as a service container and connects to it through `localhost:27017`.
+Run locally with:
+
+```bash
+python -m pytest -v
+```
 
 ---
 
-## Docker and Docker Compose
+## Docker
 
-The application image is built from the repository `Dockerfile` and starts FastAPI through Uvicorn.
+The application image is based on:
 
-For local multi-container development, Docker Compose runs the application and MongoDB together:
-
-```mermaid
-flowchart LR
-    B([Browser]) -->|localhost:8000| A["FastAPI Container"]
-
-    subgraph NET["Docker Compose Network"]
-        A -->|mongodb:27017| M[("MongoDB 8")]
-        M --- V[("Named Volume")]
-    end
+```text
+python:3.14-slim
 ```
 
-Run the stack with:
+The Dockerfile:
+
+- installs only Python dependencies required by the project
+- creates a dedicated application user with UID `10001`
+- copies application files with the correct ownership
+- runs Uvicorn as the non-root `appuser`
+
+For local multi-container development:
 
 ```bash
 docker compose up --build
@@ -153,190 +376,76 @@ docker compose up --build
 
 ---
 
-## Kubernetes / Minikube
-
-Implemented resources:
-
-- [x] Todo application Deployment
-- [x] Todo application NodePort Service
-- [x] MongoDB Deployment
-- [x] MongoDB ClusterIP Service
-- [x] MongoDB PersistentVolumeClaim
-- [x] application ConfigMap
-- [x] GHCR application image
-- [x] `imagePullPolicy: Always` for the current mutable `latest` deployment
-- [x] disabled automatic service-account token mounting where not required
-- [x] disabled unnecessary Kubernetes service-link environment injection
-- [ ] Kubernetes Secrets
-- [ ] MongoDB authentication
-- [ ] readiness and liveness probes
-- [ ] CPU / memory requests and limits
-- [ ] rolling-update and rollback exercises
+## Kubernetes / K3s
 
 Useful commands:
 
 ```bash
-kubectl get pods
-kubectl get svc
-kubectl get pvc
-minikube service todo-app --url
+kubectl get nodes
+kubectl get pods -n todo
+kubectl get svc -n todo
+kubectl get ingress -n todo
+kubectl get pvc -n todo
+kubectl get events -n todo --sort-by=.lastTimestamp
 ```
 
----
-
-## Terraform
-
-Terraform now manages the Kubernetes resources running in Minikube through the HashiCorp Kubernetes provider.
-
-Managed resources:
-
-```mermaid
-flowchart TB
-    TF["Terraform<br/>Kubernetes Provider"]
-
-    subgraph CONFIG["Configuration & Storage"]
-        CM["ConfigMap<br/>todo-app-config"]
-        PVC["PVC<br/>mongodb-pvc"]
-    end
-
-    subgraph WORKLOADS["Workloads"]
-        APP_DEP["Deployment<br/>todo-app"]
-        DB_DEP["Deployment<br/>mongodb"]
-    end
-
-    subgraph NETWORK["Networking"]
-        APP_SVC["NodePort Service<br/>todo-app"]
-        DB_SVC["ClusterIP Service<br/>mongodb"]
-    end
-
-    TF --> CM
-    TF --> PVC
-    TF --> APP_DEP
-    TF --> DB_DEP
-    TF --> APP_SVC
-    TF --> DB_SVC
-
-    CM -. referenced by .-> APP_DEP
-    PVC -. mounted by .-> DB_DEP
-```
-
-Current Terraform workflow:
-
-```bash
-cd terraform
-terraform init
-terraform fmt
-terraform validate
-terraform plan
-terraform apply
-```
-
-The existing Kubernetes resources were imported into Terraform state and reconciled with their HCL definitions. The current configuration reaches a clean:
+Expected application stack:
 
 ```text
-No changes. Your infrastructure matches the configuration.
+namespace/todo
+├── deployment/todo-app
+├── service/todo-app
+├── ingress/todo-app
+├── configmap/todo-app-config
+├── deployment/mongodb
+├── service/mongodb
+└── pvc/mongodb-pvc
 ```
 
-Next Terraform improvements:
+### Proxmox CPU note
 
-- [ ] introduce `variables.tf`
-- [ ] introduce `outputs.tf`
-- [ ] parameterize namespace, images, replicas and storage
-- [ ] verify full stack creation in an isolated namespace
-- [ ] improve Terraform state/repository hygiene
+MongoDB 5.0+ requires AVX on x86_64. During the K3s migration the generic Proxmox VM CPU model did not expose AVX to Debian, causing MongoDB 8 to enter `CrashLoopBackOff`.
+
+The homelab VM therefore uses the Proxmox CPU type:
+
+```text
+host
+```
+
+which exposes the host CPU instruction set, including AVX/AVX2, to the guest VM.
 
 ---
 
-## GitHub Actions CI
+## Public Access with Tailscale Funnel
 
-The workflow runs for pushes and pull requests targeting `main`.
+The application is designed to be exposed under:
 
-The previous single-job pipeline has been refactored into separate responsibilities:
-
-```mermaid
-flowchart LR
-    EVT(["Push / Pull Request"])
-
-    subgraph CI["GitHub Actions CI"]
-        direction LR
-
-        subgraph CHECKS["Parallel Quality Gates"]
-            direction TB
-            TEST["Test Job<br/>Python + MongoDB + pytest"]
-            TF["Terraform Check<br/>fmt + init + validate"]
-        end
-
-        BUILD["Build Job<br/>Docker Buildx"]
-        CACHE[("GitHub Actions Cache")]
-    end
-
-    REG["GitHub Container Registry<br/>GHCR"]
-
-    EVT --> TEST
-    EVT --> TF
-    TEST -->|success| BUILD
-    TF -->|success| BUILD
-    CACHE <--> BUILD
-    BUILD -->|push to main| REG
+```text
+https://<homelab-node>.<tailnet>.ts.net/todo-devops-project/
 ```
 
-### Test job
+The persistent Funnel configuration points to Traefik rather than directly to a Pod:
 
-- checks out the repository
-- configures Python 3.14
-- restores the pip dependency cache
-- starts MongoDB 8 as a service container
-- installs dependencies
-- runs the pytest suite against `todo_app_test`
-
-### Terraform check job
-
-- runs independently from the application tests
-- executes inside the `terraform/` directory
-- runs `terraform fmt -check -recursive`
-- runs `terraform init -backend=false -input=false`
-- runs `terraform validate`
-
-### Build job
-
-The Docker build runs only after both validation jobs succeed using `needs`.
-
-Implemented optimizations:
-
-- Docker Buildx / BuildKit
-- GitHub Actions layer cache (`cache-from` / `cache-to`)
-- GHCR authentication only for push events
-- image publication only for pushes to `main`
-- `latest` tag for the default branch
-- Git SHA tag for traceable builds
-- job-level least-privilege permissions
-- job timeouts
-- workflow concurrency with stale-run cancellation
-
-The current image flow is:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Dev as Developer
-    participant GH as GitHub
-    participant CI as GitHub Actions
-    participant R as GHCR
-    participant K as Minikube
-
-    Dev->>GH: git push
-    GH->>CI: Trigger workflow
-    par Application validation
-        CI->>CI: pytest + MongoDB
-    and Infrastructure validation
-        CI->>CI: Terraform fmt / validate
-    end
-    CI->>CI: Build image with Buildx
-    CI->>R: Push latest + SHA tag
-    R-->>K: Image available for deployment
+```bash
+tailscale funnel \
+  --bg \
+  --set-path=/todo-devops-project \
+  http://127.0.0.1:80
 ```
 
-Automated deployment from GitHub Actions to the local Minikube cluster is the next CI/CD milestone.
+This is important because the public endpoint remains unchanged during Kubernetes rolling updates:
+
+```text
+Tailscale Funnel
+      ↓
+Traefik
+      ↓
+Kubernetes Service
+      ↓
+current Todo Pod
+```
+
+No `kubectl port-forward` is required for normal public access.
 
 ---
 
@@ -346,18 +455,22 @@ Automated deployment from GitHub Actions to the local Minikube cluster is the ne
 Todo_DevOps_project/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml
+│       ├── ci.yml
+│       └── deploy.yml
 ├── app/
 │   ├── main.py
 │   ├── database.py
-│   ├── models.py
 │   ├── static/
+│   │   ├── style.css
+│   │   └── app.js
 │   └── templates/
+│       └── index.html
 ├── k8s/
-│   └── Kubernetes manifests
 ├── terraform/
 │   ├── main.tf
 │   ├── provider.tf
+│   ├── variables.tf
+│   ├── outputs.tf
 │   └── .terraform.lock.hcl
 ├── tests/
 ├── Dockerfile
@@ -384,45 +497,90 @@ Run the application:
 python -m uvicorn app.main:app --reload
 ```
 
-If MongoDB is running only inside Minikube:
-
-```bash
-kubectl port-forward svc/mongodb 27017:27017
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8000
-```
-
-Run tests with:
+Run tests:
 
 ```bash
 python -m pytest -v
+```
+
+Terraform validation:
+
+```bash
+terraform -chdir=terraform fmt -check -recursive
+terraform -chdir=terraform init -backend=false
+terraform -chdir=terraform validate
 ```
 
 ---
 
 ## Roadmap
 
-The next project stages are intentionally focused on local DevOps engineering before moving to a public cloud:
+The next stage is focused on **hardening the working delivery platform before adding more infrastructure**.
 
-1. finish Terraform parameterization and outputs
-2. add automated deployment to Minikube using a self-hosted GitHub Actions runner
-3. deploy immutable SHA-tagged application images
-4. add a new Todo feature and use it to test the complete CI/CD path
-5. improve the UI with CSS and JavaScript
-6. harden the FastAPI container and Kubernetes workloads
-7. add MongoDB authentication and Kubernetes Secrets
-8. add health probes, resource limits and deployment/rollback exercises
+### Application and container hardening
 
-Cloud deployment is intentionally deferred so the local CI/CD and IaC workflow can be completed first.
+- [ ] validate Todo input length and empty/invalid values
+- [ ] improve application exception handling
+- [ ] remove unnecessary error details from responses
+- [ ] add or review HTTP security headers
+- [ ] review container filesystem permissions
+- [ ] evaluate read-only root filesystem compatibility
+
+### Kubernetes hardening
+
+- [ ] configure liveness probe using `/health`
+- [ ] configure readiness probe using `/ready`
+- [ ] add CPU and memory requests/limits
+- [ ] add container `securityContext`
+- [ ] disable privilege escalation
+- [ ] drop unnecessary Linux capabilities
+- [ ] evaluate `readOnlyRootFilesystem`
+- [ ] add MongoDB authentication
+- [ ] move credentials to Kubernetes Secrets
+
+### Application features
+
+- [ ] mark a Todo item as completed
+- [ ] edit Todo items
+- [ ] add simple filtering or status display
+- [ ] improve styling and client-side behavior
+
+### DevOps exercises
+
+- [ ] test a complete rolling update with a visible application change
+- [ ] perform and document a Kubernetes rollback
+- [ ] add deployment smoke tests after Terraform apply
+- [ ] improve Terraform outputs and remove obsolete NodePort-specific output
+- [ ] document backup/restore strategy for MongoDB data
 
 ---
 
 ## Project Objective
 
-The Todo application is deliberately small. The goal is to provide a real workload for building and troubleshooting a complete DevOps delivery process rather than to build a feature-heavy application.
+The Todo application is intentionally small. Its purpose is to provide a real workload for building, operating and troubleshooting a complete DevOps delivery process rather than to become a feature-heavy application.
 
-**Python · FastAPI · MongoDB · pytest · Docker · Docker Compose · Kubernetes · Minikube · GHCR · Terraform · GitHub Actions · Buildx · CI/CD**
+The project currently covers the full path from source code to a publicly reachable homelab deployment:
+
+```text
+git push
+   ↓
+GitHub Actions CI
+   ↓
+GHCR SHA-tagged image
+   ↓
+GitHub Actions CD
+   ↓
+self-hosted runner
+   ↓
+Terraform
+   ↓
+K3s
+   ↓
+Traefik
+   ↓
+Tailscale Funnel
+   ↓
+Internet
+```
+
+**Python · FastAPI · MongoDB · pytest · Docker · Docker Compose · Kubernetes · K3s · Proxmox · Traefik · Tailscale · GHCR · Terraform · GitHub Actions · Buildx · CI/CD**
