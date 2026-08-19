@@ -1,0 +1,62 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.actor.login == github.repository_owner
+
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - todo-deploy
+
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout deployed commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Initialize Terraform
+        working-directory: terraform
+        env:
+          KUBE_CONFIG_PATH: /etc/rancher/k3s/k3s.yaml
+        run: |
+          terraform init \
+            -reconfigure \
+            -backend-config="path=/home/github-runner/terraform-state/todo/terraform.tfstate"
+
+      - name: Deploy to K3s cluster
+        working-directory: terraform
+        env:
+          KUBE_CONFIG_PATH: /etc/rancher/k3s/k3s.yaml
+        run: |
+          terraform apply \
+            -auto-approve \
+            -input=false \
+            -var="app_image=ghcr.io/jakubsx01/todo_devops_project:sha-${{ github.event.workflow_run.head_sha }}"
+
+      - name: Verify deployment
+        env:
+          KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+        run: |
+          kubectl get pods -n todo
+          kubectl rollout status deployment/todo-app \
+            -n todo \
+            --timeout=120s
