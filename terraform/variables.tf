@@ -1,7 +1,7 @@
 variable "namespace" {
   description = "Kubernetes namespace for appliaction resources"
   type        = string
-  default     = "default"
+  default     = "todo"
 }
 
 variable "app_image" {

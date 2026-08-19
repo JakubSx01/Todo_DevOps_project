@@ -1,8 +1,15 @@
+# Kubernetes Namespace
+resource "kubernetes_namespace_v1" "todo_namespace" {
+  metadata {
+    name = var.namespace
+  }
+}
+
 # Kubernetes Config Map
 resource "kubernetes_config_map_v1" "app_config_map" {
   metadata {
     name      = "todo-app-config"
-    namespace = var.namespace
+    namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
   }
   data = {
     MONGODB_URI = "mongodb://mongodb:27017/"
@@ -14,7 +21,7 @@ resource "kubernetes_config_map_v1" "app_config_map" {
 resource "kubernetes_persistent_volume_claim_v1" "mongodb_pvc" {
   metadata {
     name      = "mongodb-pvc"
-    namespace = var.namespace
+    namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
   }
   spec {
     access_modes = ["ReadWriteOnce"]
@@ -31,7 +38,7 @@ resource "kubernetes_deployment_v1" "mongodb_deployment" {
   wait_for_rollout = true
   metadata {
     name      = "mongodb"
-    namespace = var.namespace
+    namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
   }
   spec {
     replicas = var.mongodb_replicas
@@ -76,7 +83,7 @@ resource "kubernetes_service_v1" "mongodb_service" {
   wait_for_load_balancer = false
   metadata {
     name      = "mongodb"
-    namespace = var.namespace
+    namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
   }
   spec {
     selector = {
@@ -94,7 +101,7 @@ resource "kubernetes_deployment_v1" "todo_app_deployment" {
   wait_for_rollout = true
   metadata {
     name      = "todo-app"
-    namespace = var.namespace
+    namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
   }
   spec {
     replicas = var.app_replicas
@@ -134,7 +141,7 @@ resource "kubernetes_service_v1" "todo_app_service" {
   wait_for_load_balancer = false
   metadata {
     name      = "todo-app"
-    namespace = var.namespace
+    namespace = kubernetes_namespace_v1.todo_namespace.metadata[0].name
   }
   spec {
     selector = {
